@@ -1,6 +1,15 @@
 package org.chrisvenator;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import org.chrisvenator.Voting.MajorityVoting;
+import org.chrisvenator.Voting.VotingMetric;
 import org.chrisvenator.distance.DistanceMetric;
+import org.chrisvenator.distance.EuclideanDistance;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 
 public class KNNClassifier {
     private DataPoint[] trainingData;
@@ -23,8 +32,33 @@ public class KNNClassifier {
         }
     }
     
-    public int predict(int k, double[] testPoint, DistanceMetric distanceMetric) {
-        return -1;
+    public int predict(int k, double[] testPoint, DistanceMetric distanceMetric, VotingMetric votingMetric) {
+        if (distanceMetric == null) distanceMetric = new EuclideanDistance();
+        if (votingMetric == null) votingMetric = new MajorityVoting();
+        
+        List<Neighbor> space = new ArrayList<>();
+        for (DataPoint dataPoint : trainingData) {
+            space.add(new Neighbor(dataPoint, distanceMetric.calculateDistance(dataPoint.getVector(), testPoint)));
+        }
+        space.sort(Comparator.comparingDouble(Neighbor::getDistance));
+        
+        return votingMetric.vote(k, space);
+    }
+    
+    @AllArgsConstructor
+    public static class Neighbor implements Comparable<Neighbor> {
+        private DataPoint trainPoint;
+        @Getter
+        private double distance;
+        
+        @Override
+        public int compareTo(Neighbor other) {
+            return Double.compare(this.distance, other.distance);
+        }
+        
+        public int getLabel() {
+            return trainPoint.getLabel();
+        }
     }
 }
 

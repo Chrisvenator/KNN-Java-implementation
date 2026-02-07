@@ -1,5 +1,6 @@
 package org.chrisvenator;
 
+import org.chrisvenator.Voting.MajorityVoting;
 import org.chrisvenator.distance.EuclideanDistance;
 
 /**
@@ -14,6 +15,6 @@ public class App {
         knn.fit(trainingData, labels);
         
         double[] test = {2, 2};
-        System.out.println(knn.predict(1, test, new EuclideanDistance()));
+        System.out.println(knn.predict(6, test, new EuclideanDistance(), new MajorityVoting()));
     }
 }
