@@ -8,7 +8,7 @@ import org.chrisvenator.distance.ManhattanDistance;
 /**
  * Demonstration of KNN classifier with various configurations.
  */
-public class App {
+public class Example {
     public static void main(String[] args) {
         // Training data: two clusters representing two classes
         double[][] trainingData = {

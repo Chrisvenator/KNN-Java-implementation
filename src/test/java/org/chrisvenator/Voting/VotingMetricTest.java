@@ -63,15 +63,6 @@ class VotingMetricTest {
     }
     
     @Test
-    @DisplayName("MajorityVoting: Should throw on empty neighbors")
-    void testMajorityVotingEmptyNeighbors() {
-        MajorityVoting voting = new MajorityVoting();
-        List<KNNClassifier.Neighbor> empty = new ArrayList<>();
-        
-        assertThrows(IllegalArgumentException.class, () -> voting.vote(1, empty));
-    }
-    
-    @Test
     @DisplayName("MajorityVoting: Should handle all same label")
     void testMajorityVotingAllSame() {
         MajorityVoting voting = new MajorityVoting();

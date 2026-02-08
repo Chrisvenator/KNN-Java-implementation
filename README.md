@@ -153,7 +153,7 @@ mvn test
 
 ### Run Example
 ```bash
-mvn exec:java -Dexec.mainClass="org.chrisvenator.App"
+mvn exec:java -Dexec.mainClass="org.chrisvenator.Example"
 ```
 
 ## Project Structure
