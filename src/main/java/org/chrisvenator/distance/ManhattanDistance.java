@@ -14,4 +14,9 @@ public class ManhattanDistance implements DistanceMetric {
                 .map(i -> Math.abs(a[(int) i] - b[(int) i]))
                 .sum();
     }
+    
+    @Override
+    public String toString() {
+        return "ManhattanDistance";
+    }
 }

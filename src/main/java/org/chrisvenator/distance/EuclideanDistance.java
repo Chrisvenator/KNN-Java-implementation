@@ -20,4 +20,9 @@ public class EuclideanDistance implements DistanceMetric {
         }
         return Math.sqrt(sum);
     }
+    
+    @Override
+    public String toString() {
+        return "EuclideanDistance";
+    }
 }
