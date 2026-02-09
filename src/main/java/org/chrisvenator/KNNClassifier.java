@@ -6,9 +6,7 @@ import org.chrisvenator.Voting.VotingMetric;
 import org.chrisvenator.distance.DistanceMetric;
 import org.chrisvenator.distance.EuclideanDistance;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 
 /**
  * K-Nearest Neighbors (KNN) classifier implementation.
@@ -31,6 +29,119 @@ public class KNNClassifier {
      * Call fit(...) next
      */
     public KNNClassifier() {}
+    
+    private DataPoint[] shuffleTrainingData() {
+        List<DataPoint> list = new ArrayList<>(Arrays.asList(this.trainingData));
+        Collections.shuffle(list);
+        return list.toArray(new DataPoint[0]);
+    }
+    
+    public Map<Integer, CrossValidationResult> KFoldCrossValidation(int folds, int[] kNeighborsToTest, DistanceMetric distanceMetric, VotingMetric votingMetric) {
+        
+        if (trainingData == null || trainingData.length == 0) {
+            throw new IllegalStateException("Classifier must be trained before cross-validation");
+        }
+        if (folds <= 1) {
+            throw new IllegalArgumentException("folds must be at least 2 for cross-validation");
+        }
+        if (folds > trainingData.length) {
+            throw new IllegalArgumentException("folds cannot exceed number of training samples");
+        }
+        
+        DataPoint[] shuffledData = shuffleTrainingData();
+        int foldSize = shuffledData.length / folds;
+        
+        // Calculate maximum valid k based on smallest training set size
+        int maxTrainSize = shuffledData.length - (shuffledData.length - (folds - 1) * foldSize);
+        int[] validKValues = Arrays.stream(kNeighborsToTest).filter(k -> k <= maxTrainSize).toArray();
+        
+        if (validKValues.length == 0) {
+            throw new IllegalArgumentException("No valid k values - all exceed training set size");
+        }
+        
+        // Store accuracies for each k value
+        Map<Integer, double[]> allAccuracies = new HashMap<>();
+        for (int k : validKValues) {
+            allAccuracies.put(k, new double[folds]);
+        }
+        
+        for (int i = 0; i < folds; i++) {
+            // Calculate validation fold indices
+            int validationStart = i * foldSize;
+            int validationEnd = (i == folds - 1) ? shuffledData.length : (i + 1) * foldSize;
+            
+            // Split into training and validation sets
+            List<DataPoint> trainList = new ArrayList<>();
+            List<DataPoint> validationList = new ArrayList<>();
+            
+            for (int j = 0; j < shuffledData.length; j++) {
+                if (j >= validationStart && j < validationEnd) {
+                    validationList.add(shuffledData[j]);
+                } else {
+                    trainList.add(shuffledData[j]);
+                }
+            }
+            
+            // Convert to arrays for training
+            double[][] trainData = trainList.stream().map(DataPoint::getVector).toArray(double[][]::new);
+            int[] trainLabels = trainList.stream().mapToInt(DataPoint::getLabel).toArray();
+            
+            // Convert validation data
+            double[][] validationData = validationList.stream().map(DataPoint::getVector).toArray(double[][]::new);
+            int[] validationLabels = validationList.stream().mapToInt(DataPoint::getLabel).toArray();
+            
+            // Train once per fold
+            KNNClassifier knn = new KNNClassifier();
+            knn.fit(trainData, trainLabels);
+            
+            // Test each k value on this fold
+            for (int kNeighbors : validKValues) {
+                int correct = 0;
+                for (int j = 0; j < validationData.length; j++) {
+                    int prediction = knn.predict(kNeighbors, validationData[j], distanceMetric, votingMetric);
+                    if (prediction == validationLabels[j]) {
+                        correct++;
+                    }
+                }
+                allAccuracies.get(kNeighbors)[i] = (double) correct / validationData.length;
+            }
+        }
+        
+        // Convert to CrossValidationResult for each k
+        Map<Integer, CrossValidationResult> results = new HashMap<>();
+        for (int k : validKValues) {
+            results.put(k, new CrossValidationResult(allAccuracies.get(k)));
+        }
+        
+        return results;
+    }
+    
+    public HyperparameterSearchResult findBestHyperparameters(int folds, int[] kValuesToTest, DistanceMetric[] distanceMetrics, VotingMetric[] votingMetrics) {
+        double bestAccuracy = -1;
+        int bestK = -1;
+        DistanceMetric bestDistanceMetric = null;
+        VotingMetric bestVotingMetric = null;
+        
+        Map<String, Map<Integer, CrossValidationResult>> allResults = new HashMap<>();
+        for (DistanceMetric distanceMetric : distanceMetrics) {
+            for (VotingMetric votingMetric : votingMetrics) {
+                String configKey = distanceMetric.toString() + "_" + votingMetric.getClass().getSimpleName();
+                Map<Integer, CrossValidationResult> cvResults = KFoldCrossValidation(folds, kValuesToTest, distanceMetric, votingMetric);
+                allResults.put(configKey, cvResults);
+                
+                for (Map.Entry<Integer, CrossValidationResult> entry : cvResults.entrySet()) {
+                    double accuracy = entry.getValue().meanAccuracy();
+                    if (accuracy > bestAccuracy) {
+                        bestAccuracy = accuracy;
+                        bestK = entry.getKey();
+                        bestDistanceMetric = distanceMetric;
+                        bestVotingMetric = votingMetric;
+                    }
+                }
+            }
+        }
+        return new HyperparameterSearchResult(bestK, bestDistanceMetric, bestVotingMetric, bestAccuracy, allResults);
+    }
     
     /**
      * Trains the classifier with labeled data.
@@ -89,10 +200,7 @@ public class KNNClassifier {
             throw new IllegalArgumentException("labels cannot be null");
         }
         if (trainingData.length != labels.length) {
-            throw new IllegalArgumentException(
-                    String.format("trainingData length (%d) must match labels length (%d)",
-                            trainingData.length, labels.length)
-            );
+            throw new IllegalArgumentException(String.format("trainingData length (%d) must match labels length (%d)", trainingData.length, labels.length));
         }
         if (trainingData.length == 0) {
             throw new IllegalArgumentException("trainingData cannot be empty");
@@ -105,10 +213,7 @@ public class KNNClassifier {
                 throw new IllegalArgumentException("trainingData[" + i + "] cannot be null");
             }
             if (trainingData[i].length != expectedDimension) {
-                throw new IllegalArgumentException(
-                        String.format("All training samples must have same dimension. Expected %d, got %d at index %d",
-                                expectedDimension, trainingData[i].length, i)
-                );
+                throw new IllegalArgumentException(String.format("All training samples must have same dimension. Expected %d, got %d at index %d", expectedDimension, trainingData[i].length, i));
             }
         }
     }
@@ -124,18 +229,13 @@ public class KNNClassifier {
             throw new IllegalArgumentException("k must be positive, got: " + k);
         }
         if (k > trainingData.length) {
-            throw new IllegalArgumentException(
-                    String.format("k (%d) cannot exceed number of training samples (%d)", k, trainingData.length)
-            );
+            throw new IllegalArgumentException(String.format("k (%d) cannot exceed number of training samples (%d)", k, trainingData.length));
         }
         if (testPoint == null) {
             throw new IllegalArgumentException("testPoint cannot be null");
         }
         if (testPoint.length != trainingData[0].getVector().length) {
-            throw new IllegalArgumentException(
-                    String.format("testPoint dimension (%d) must match training data dimension (%d)",
-                            testPoint.length, trainingData[0].getVector().length)
-            );
+            throw new IllegalArgumentException(String.format("testPoint dimension (%d) must match training data dimension (%d)", testPoint.length, trainingData[0].getVector().length));
         }
     }
     

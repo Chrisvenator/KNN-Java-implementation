@@ -1,7 +1,9 @@
 package org.chrisvenator;
 
 import org.chrisvenator.Voting.MajorityVoting;
+import org.chrisvenator.Voting.VotingMetric;
 import org.chrisvenator.Voting.WeightedMajorityVoting;
+import org.chrisvenator.distance.DistanceMetric;
 import org.chrisvenator.distance.EuclideanDistance;
 import org.chrisvenator.distance.ManhattanDistance;
 
@@ -9,10 +11,9 @@ import org.chrisvenator.distance.ManhattanDistance;
  * Demonstration of KNN classifier with various configurations.
  */
 public class Example {
-    public static void main(String[] args) {
+    static void main() {
         // Training data: two clusters representing two classes
-        double[][] trainingData = {
-                {1, 2}, {2, 3}, {3, 1},  // Class 0 (lower-left cluster)
+        double[][] trainingData = {{1, 2}, {2, 3}, {3, 1},  // Class 0 (lower-left cluster)
                 {6, 5}, {7, 7}, {8, 6}   // Class 1 (upper-right cluster)
         };
         int[] labels = {0, 0, 0, 1, 1, 1};
@@ -69,10 +70,33 @@ public class Example {
         System.out.println();
         
         // Example 5: Using defaults (null parameters)
-        System.out.println("Example 6: Using defaults (null for distance and voting)");
+        System.out.println("Example 5: Using defaults (null for distance and voting)");
         int defaultPred = knn.predict(3, testPoint1, null, null);
         System.out.println("  Point " + formatPoint(testPoint1) + " -> Class " + defaultPred);
         System.out.println("  (Uses EuclideanDistance and MajorityVoting by default)");
+        
+        
+        // Example 6: Hyperparameter Search with Cross-Validation
+        System.out.println("Example 6: Finding Best Hyperparameters");
+        System.out.println("==========================================");
+        
+        HyperparameterSearchResult searchResult = knn.findBestHyperparameters(5, new int[]{1, 2, 3},
+                new DistanceMetric[]{new EuclideanDistance(), new ManhattanDistance()},
+                new VotingMetric[]{new MajorityVoting(), new WeightedMajorityVoting()}
+        );
+        
+        System.out.println(searchResult);
+        System.out.println();
+        
+        // Optional: Show detailed results
+        System.out.println("Detailed Results:");
+        searchResult.allResults().forEach((config, results) -> {
+            System.out.println("  " + config + ":");
+            results.forEach((k, cvResult) -> System.out.printf("    k=%d: %.4f (±%.4f)%n", k, cvResult.meanAccuracy(), cvResult.standardDeviation()));
+        });
+        
+        
+        
     }
     
     private static String formatPoint(double[] point) {

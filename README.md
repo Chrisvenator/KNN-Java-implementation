@@ -212,9 +212,9 @@ src/
 ## Contributing
 
 Suggestions for improvement:
-1. Add cross-validation support
-2. Add evaluation metrics (accuracy, precision, recall, F1)
-3. Add batch prediction support
+1. ~~Add cross-validation support~~
+2. ~~Add evaluation metrics (accuracy, precision, recall, F1)~~
+3. ~~Add batch prediction support~~
 4. Add feature scaling/normalization
 5. Implement KD-tree for faster neighbor search
 6. Add model serialization (save/load)
